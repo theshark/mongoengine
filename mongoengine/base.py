@@ -5,6 +5,8 @@ import sys
 import pymongo
 import pymongo.objectid
 
+class NotRegistered(Exception):
+    pass
 
 _document_registry = {}
 
