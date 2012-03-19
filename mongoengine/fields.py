@@ -17,7 +17,7 @@ import types
 
 __all__ = ['StringField', 'IntField', 'FloatField', 'BooleanField',
            'DateTimeField', 'EmbeddedDocumentField', 'ListField', 'DictField',
-           'ObjectIdField', 'ReferenceField', 'ValidationError',
+           'ObjectIdField', 'ReferenceField', 'ValidationError', 'MapField', 
            'DecimalField', 'URLField', 'GenericReferenceField', 'FileField',
            'BinaryField', 'SortedListField', 'EmailField', 'GeoPointField']
 
@@ -411,6 +411,21 @@ class DictField(BaseField):
 
     def lookup_member(self, member_name):
         return self.basecls(db_field=member_name)
+
+class MapField(DictField):
+    """A field that maps a name to a specified field type. Similar to
+    a DictField, except the 'value' of each item must match the specified
+    field type.
+
+    Stolen from v0.5 of mongoengine.
+    """
+
+    def __init__(self, field=None, *args, **kwargs):
+        if not isinstance(field, BaseField):
+            self.error('Argument to MapField constructor must be a valid '
+                       'field')
+        super(MapField, self).__init__(field=field, *args, **kwargs)
+
 
 class ReferenceField(BaseField):
     """A reference to a document that will be automatically dereferenced on
