@@ -2,7 +2,7 @@ from bson import DBRef, SON
 
 from base import (BaseDict, BaseList, TopLevelDocumentMetaclass, get_document)
 from fields import (ReferenceField, ListField, DictField, MapField)
-from connection import get_db
+from connection import _get_db
 from queryset import QuerySet
 from document import Document
 
@@ -108,7 +108,7 @@ class DeReference(object):
                         doc = doc_type._from_son(ref)
                         object_map[doc.id] = doc
                 else:
-                    references = get_db()[col].find({'_id': {'$in': refs}})
+                    references = _get_db()[col].find({'_id': {'$in': refs}})
                     for ref in references:
                         if '_cls' in ref:
                             doc = get_document(ref["_cls"])._from_son(ref)
