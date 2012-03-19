@@ -100,6 +100,16 @@ class Document(BaseDocument):
             message = u'Could not delete document (%s)' % err.message
             raise OperationError(message)
 
+    def select_related(self, max_depth=1):
+        """Handles dereferencing of :class:`~bson.dbref.DBRef` objects to
+        a maximum depth in order to cut down the number of queries to mongodb.
+
+        Stolen from version 0.5.
+        """
+        from dereference import DeReference
+        self._data = DeReference()(self._data, max_depth)
+        return self
+
     def reload(self):
         """Reloads all attributes from the database.
 
