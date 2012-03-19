@@ -219,6 +219,8 @@ class DocumentMetaclass(type):
         exc = subclass_exception('MultipleObjectsReturned', base_excs, module)
         new_class.add_to_class('MultipleObjectsReturned', exc)
 
+        print 'We are looking at a name value of %s' % name
+
         global _document_registry
         _document_registry[name] = new_class
 
