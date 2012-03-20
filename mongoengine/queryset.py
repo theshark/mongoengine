@@ -834,7 +834,7 @@ class QuerySet(object):
         Stolen from 0.5 release.
         """
         self._loaded_fields = []
-        for field_name in self._document_fields:
+        for field_name in self._document._fields:
             if field_name in fields:
                 continue
 
