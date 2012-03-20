@@ -824,6 +824,26 @@ class QuerySet(object):
             self._loaded_fields += ['_cls']
         return self
 
+    def exclude(self, *fields):
+        """Loads a subset of fields, those which aren't specified. ::
+
+            post = BlogPost.objects(...).exclude("comments")
+
+        :param fields: fields to exclude
+
+        Stolen from 0.5 release.
+        """
+        self._loaded_fields = []
+        for field_name in self._document_fields:
+            if field_name in fields:
+                continue
+
+            # Translate field name
+            field = QuerySet._lookup_field(self._document, field)[-1].db_field
+            self._loaded_fields.append(field)
+
+        return self
+
     def order_by(self, *keys):
         """Order the :class:`~mongoengine.queryset.QuerySet` by the keys. The
         order may be specified by prepending each of the keys by a + or a -.
