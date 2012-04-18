@@ -424,7 +424,7 @@ class QuerySet(object):
             }
             if self._loaded_fields:
                 cursor_args['fields'] = self._loaded_fields
-            self._cursor_obj = self._collection.find(self._query, 
+            self._cursor_obj = self._collection.find(self._query,
                                                      **cursor_args)
             # Apply where clauses to cursor
             if self._where_clause:
@@ -476,8 +476,8 @@ class QuerySet(object):
         operators = ['ne', 'gt', 'gte', 'lt', 'lte', 'in', 'nin', 'mod',
                      'all', 'size', 'exists', 'not']
         geo_operators = ['within_distance', 'within_box', 'near']
-        match_operators = ['contains', 'icontains', 'startswith', 
-                           'istartswith', 'endswith', 'iendswith', 
+        match_operators = ['contains', 'icontains', 'startswith',
+                           'istartswith', 'endswith', 'iendswith',
                            'exact', 'iexact']
 
         mongo_query = {}
@@ -563,8 +563,8 @@ class QuerySet(object):
                                               % self._document._class_name)
 
     def get_or_create(self, *q_objs, **query):
-        """Retrieve unique object or create, if it doesn't exist. Returns a tuple of 
-        ``(object, created)``, where ``object`` is the retrieved or created object 
+        """Retrieve unique object or create, if it doesn't exist. Returns a tuple of
+        ``(object, created)``, where ``object`` is the retrieved or created object
         and ``created`` is a boolean specifying whether a new object was created. Raises
         :class:`~mongoengine.queryset.MultipleObjectsReturned` or
         `DocumentName.MultipleObjectsReturned` if multiple results are found.
@@ -608,6 +608,46 @@ class QuerySet(object):
         except IndexError:
             result = None
         return result
+
+    def insert(self, doc_or_docs, load_bulk=True):
+        """Bulk inserts documents.
+
+        :param docs_or_doc: a document or list of documents to be inserted
+        :param load_bulk (optional): If True returns the list of document instances
+
+        By default returns document instances, set ``load_bulk`` to False to
+        return just ``ObjectIds``
+
+        .. versionadded:: 0.5, slapped into our Mongoengine build by CWMP.
+        """
+        from document import Document
+
+        docs = doc_or_docs
+        return_one = False
+        if isinstance(docs, Document) or issubclass(docs.__class, Document):
+            return_one = True
+            docs = [docs]
+
+        raw = []
+        for doc in docs:
+            if not isinstance(doc, self._document):
+                msg = "Some documents inserted aren't instances of %s" % str(self._document)
+                raise OperationError(msg)
+            if doc.pk:
+                msg = "Some documents have ObjectIds; use doc.update() instead."
+                raise OperationError(msg)
+            raw.append(doc.to_mongo())
+
+        ids = self._collection.insert(raw)
+
+        if not load_bulk:
+            return return_one and ids[0] or ids
+
+        documents = self.in_bulk(ids)
+        results = []
+        for obj_id in ids:
+            results.append(documents.get(obj_id))
+        return return_one and results[0] or results
 
     def with_id(self, object_id):
         """Retrieve the object matching the id provided.
@@ -777,7 +817,7 @@ class QuerySet(object):
                 self._skip, self._limit = key.start, key.stop
             except IndexError, err:
                 # PyMongo raises an error if key.start == key.stop, catch it,
-                # bin it, kill it. 
+                # bin it, kill it.
                 start = key.start or 0
                 if start >= 0 and key.stop >= 0 and key.step is None:
                     if start == key.stop:
@@ -953,7 +993,7 @@ class QuerySet(object):
         return mongo_update
 
     def update(self, safe_update=True, upsert=False, **update):
-        """Perform an atomic update on the fields matched by the query. When 
+        """Perform an atomic update on the fields matched by the query. When
         ``safe_update`` is used, the number of affected documents is returned.
 
         :param safe: check if the operation succeeded before returning
@@ -977,7 +1017,7 @@ class QuerySet(object):
             raise OperationError(u'Update failed (%s)' % unicode(err))
 
     def update_one(self, safe_update=True, upsert=False, **update):
-        """Perform an atomic update on first field matched by the query. When 
+        """Perform an atomic update on first field matched by the query. When
         ``safe_update`` is used, the number of affected documents is returned.
 
         :param safe: check if the operation succeeded before returning
@@ -1005,8 +1045,8 @@ class QuerySet(object):
         return self
 
     def _sub_js_fields(self, code):
-        """When fields are specified with [~fieldname] syntax, where 
-        *fieldname* is the Python name of a field, *fieldname* will be 
+        """When fields are specified with [~fieldname] syntax, where
+        *fieldname* is the Python name of a field, *fieldname* will be
         substituted for the MongoDB name of the field (specified using the
         :attr:`name` keyword argument in a field's constructor).
         """
@@ -1029,9 +1069,9 @@ class QuerySet(object):
         options specified as keyword arguments.
 
         As fields in MongoEngine may use different names in the database (set
-        using the :attr:`db_field` keyword argument to a :class:`Field` 
+        using the :attr:`db_field` keyword argument to a :class:`Field`
         constructor), a mechanism exists for replacing MongoEngine field names
-        with the database field names in Javascript code. When accessing a 
+        with the database field names in Javascript code. When accessing a
         field, use square-bracket notation, and prefix the MongoEngine field
         name with a tilde (~).
 
