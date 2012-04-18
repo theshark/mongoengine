@@ -624,7 +624,7 @@ class QuerySet(object):
 
         docs = doc_or_docs
         return_one = False
-        if isinstance(docs, Document) or issubclass(docs.__class, Document):
+        if isinstance(docs, Document) or issubclass(docs.__class__, Document):
             return_one = True
             docs = [docs]
 
