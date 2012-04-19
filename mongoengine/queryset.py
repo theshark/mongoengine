@@ -628,6 +628,8 @@ class QuerySet(object):
             return_one = True
             docs = [docs]
 
+        self._document.suppress_save = True
+
         raw = []
         for doc in docs:
             if not isinstance(doc, self._document):
@@ -636,7 +638,13 @@ class QuerySet(object):
             if doc.pk:
                 msg = "Some documents have ObjectIds; use doc.update() instead."
                 raise OperationError(msg)
+
             raw.append(doc.to_mongo())
+
+            # We need to call document.save() to generate the fields we use on our documents.
+            # However, we don't want to actually save.
+            doc.suppress_save = True
+            doc.save()
 
         ids = self._collection.insert(raw)
 
