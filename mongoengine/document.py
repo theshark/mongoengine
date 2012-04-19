@@ -55,7 +55,6 @@ class Document(BaseDocument):
     """
 
     __metaclass__ = TopLevelDocumentMetaclass
-    _suppress_save = False
 
     def save(self, safe=True, force_insert=False, validate=True):
         """Save the :class:`~mongoengine.Document` to the database. If the
