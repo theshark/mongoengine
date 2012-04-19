@@ -75,7 +75,7 @@ class Document(BaseDocument):
 
         # Sometimes, we want to fake a save so we can generate slugs and such before
         # bulk import using Pymongo.
-        if getattr('suppress_save', False):
+        if getattr(self, 'suppress_save', False):
             _suppress_save = False
             return
 
