@@ -1,4 +1,5 @@
-from base import BaseField, ObjectIdField, ValidationError, get_document
+from base import (BaseField, ComplexBaseField, ObjectIdField,
+                    ValidationError, get_document)
 from document import Document, EmbeddedDocument
 from connection import _get_db
 from operator import itemgetter
@@ -385,14 +386,15 @@ class SortedListField(ListField):
         return sorted([self.field.to_mongo(item) for item in value])
 
 
-class DictField(BaseField):
+class DictField(ComplexBaseField):
     """A dictionary field that wraps a standard Python dictionary. This is
     similar to an embedded document, but the structure is not defined.
 
     .. versionadded:: 0.3
     """
 
-    def __init__(self, basecls=None, *args, **kwargs):
+    def __init__(self, basecls=None, field=None, *args, **kwargs):
+        self.field = field
         self.basecls = basecls or BaseField
         assert issubclass(self.basecls, BaseField)
         kwargs.setdefault('default', lambda: {})
@@ -410,7 +412,18 @@ class DictField(BaseField):
                                   'contain "." or "$" characters')
 
     def lookup_member(self, member_name):
-        return self.basecls(db_field=member_name)
+        return DictField(basecls=self.basecls, db_field=member_name)
+        #return self.basecls(db_field=member_name)
+
+    def prepare_query_value(self, op, value):
+        match_operators = ['contains', 'icontains', 'startswith',
+                           'istartswith', 'endswith', 'iendswith',
+                           'exact', 'iexact']
+
+        if op in match_operators and isinstance(value, basestring):
+            return StringField().prepare_query_value(op, value)
+
+        return super(DictField, self).prepare_query_value(op, value)
 
 class MapField(DictField):
     """A field that maps a name to a specified field type. Similar to

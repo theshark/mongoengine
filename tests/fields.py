@@ -186,6 +186,32 @@ class FieldTest(unittest.TestCase):
         log.time = '1pm'
         self.assertRaises(ValidationError, log.validate)
 
+    def test_mapfield(self):
+        """Ensure that the MapField handles the declared type."""
+
+        class Simple(Document):
+            mapping = MapField(IntField())
+
+        Simple.drop_collection()
+
+        e = Simple()
+        e.mapping['someint'] = 1
+        e.save()
+
+        def create_invalid_mapping():
+            e.mapping['somestring'] = "abc"
+            e.save()
+
+        self.assertRaises(ValidationError, create_invalid_mapping)
+
+        def create_invalid_class():
+            class NoDeclaredType(Document):
+                mapping = MapField()
+
+        self.assertRaises(ValidationError, create_invalid_class)
+
+        Simple.drop_collection()
+
     def test_list_validation(self):
         """Ensure that a list field only accepts lists with valid elements.
         """
