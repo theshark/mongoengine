@@ -1227,10 +1227,12 @@ class QuerySetTest(unittest.TestCase):
         class Test(Document):
             testdict = DictField()
 
+        Test.drop_collection()
+
         t = Test(testdict={'f': 'Value'})
         t.save()
 
-        self.assertEqual(len(Test.objects(testdict__f__startswith='Val')), 0)
+        self.assertEqual(len(Test.objects(testdict__f__startswith='Val')), 1)
         self.assertEqual(len(Test.objects(testdict__f='Value')), 1)
         Test.drop_collection()
 

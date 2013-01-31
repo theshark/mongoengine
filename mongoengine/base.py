@@ -1,3 +1,5 @@
+import operator
+
 from queryset import QuerySet, QuerySetManager
 from queryset import DoesNotExist, MultipleObjectsReturned
 
@@ -116,6 +118,152 @@ class BaseField(object):
                 raise ValueError('validation argument must be a callable.')
 
         self.validate(value)
+
+class ComplexBaseField(BaseField):
+    """Handles complex fields, such as lists / dictionaries.
+
+    Allows for nesting of embedded documents inside complex types.
+    Handles the lazy dereferencing of a queryset by lazily dereferencing all
+    items in a list / dict rather than one at a time.
+
+    .. versionadded:: 0.5
+    """
+
+    field = None
+
+    def __get__(self, instance, owner):
+        """Descriptor to automatically dereference references.
+        """
+        if instance is None:
+            # Document class being used rather than a document object
+            return self
+
+        from dereference import dereference
+        instance._data[self.name] = dereference(
+            instance._data.get(self.name), max_depth=1, instance=instance, name=self.name, get=True
+        )
+        return super(ComplexBaseField, self).__get__(instance, owner)
+
+    def to_python(self, value):
+        """Convert a MongoDB-compatible type to a Python type.
+        """
+        from mongoengine import Document
+
+        if isinstance(value, basestring):
+            return value
+
+        if hasattr(value, 'to_python'):
+            return value.to_python()
+
+        is_list = False
+        if not hasattr(value, 'items'):
+            try:
+                is_list = True
+                value = dict([(k,v) for k,v in enumerate(value)])
+            except TypeError: # Not iterable return the value
+                return value
+
+        if self.field:
+            value_dict = dict([(key, self.field.to_python(item)) for key, item in value.items()])
+        else:
+            value_dict = {}
+            for k,v in value.items():
+                if isinstance(v, Document):
+                    # We need the id from the saved object to create the DBRef
+                    if v.pk is None:
+                        raise ValidationError('You can only reference documents once '
+                                      'they have been saved to the database')
+                    collection = v._get_collection_name()
+                    value_dict[k] = pymongo.dbref.DBRef(collection, v.pk)
+                elif hasattr(v, 'to_python'):
+                    value_dict[k] = v.to_python()
+                else:
+                    value_dict[k] = self.to_python(v)
+
+        if is_list: # Convert back to a list
+            return [v for k,v in sorted(value_dict.items(), key=operator.itemgetter(0))]
+        return value_dict
+
+    def to_mongo(self, value):
+        """Convert a Python type to a MongoDB-compatible type.
+        """
+        from mongoengine import Document
+
+        if isinstance(value, basestring):
+            return value
+
+        if hasattr(value, 'to_mongo'):
+            return value.to_mongo()
+
+        is_list = False
+        if not hasattr(value, 'items'):
+            try:
+                is_list = True
+                value = dict([(k,v) for k,v in enumerate(value)])
+            except TypeError: # Not iterable return the value
+                return value
+
+        if self.field:
+            value_dict = dict([(key, self.field.to_mongo(item)) for key, item in value.items()])
+        else:
+            value_dict = {}
+            for k,v in value.items():
+                if isinstance(v, Document):
+                    # We need the id from the saved object to create the DBRef
+                    if v.pk is None:
+                        raise ValidationError('You can only reference documents once '
+                                      'they have been saved to the database')
+
+                    # If its a document that is not inheritable it won't have
+                    # _types / _cls data so make it a generic reference allows
+                    # us to dereference
+                    meta = getattr(v, 'meta', getattr(v, '_meta', {}))
+                    if meta and not meta['allow_inheritance'] and not self.field:
+                        from fields import GenericReferenceField
+                        value_dict[k] = GenericReferenceField().to_mongo(v)
+                    else:
+                        collection = v._get_collection_name()
+                        value_dict[k] = pymongo.dbref.DBRef(collection, v.pk)
+                elif hasattr(v, 'to_mongo'):
+                    value_dict[k] = v.to_mongo()
+                else:
+                    value_dict[k] = self.to_mongo(v)
+
+        if is_list: # Convert back to a list
+            return [v for k,v in sorted(value_dict.items(), key=operator.itemgetter(0))]
+        return value_dict
+
+    def validate(self, value):
+        """If field provided ensure the value is valid.
+        """
+        if self.field:
+            try:
+                if hasattr(value, 'iteritems'):
+                    [self.field.validate(v) for k,v in value.iteritems()]
+                else:
+                    [self.field.validate(v) for v in value]
+            except Exception, err:
+                raise ValidationError('Invalid %s item (%s)' % (
+                        self.field.__class__.__name__, str(v)))
+
+    def prepare_query_value(self, op, value):
+        return self.to_mongo(value)
+
+    def lookup_member(self, member_name):
+        if self.field:
+            return self.field.lookup_member(member_name)
+        return None
+
+    def _set_owner_document(self, owner_document):
+        if self.field:
+            self.field.owner_document = owner_document
+        self._owner_document = owner_document
+
+    def _get_owner_document(self, owner_document):
+        self._owner_document = owner_document
+
+    owner_document = property(_get_owner_document, _set_owner_document)
+
 
 class ObjectIdField(BaseField):
     """An field wrapper around MongoDB's ObjectIds.
